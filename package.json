@@ -1,0 +1,13 @@
+{
+  "name": "linksight-mcp",
+  "version": "1.0.0",
+  "description": "Remote MCP server for Linksight — exposes LinkedIn analytics tools to AI agents via HTTPS",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "express": "^4.21.0"
+  }
+}
