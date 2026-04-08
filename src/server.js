@@ -71,19 +71,63 @@ function createMCPServer() {
 
 // --- Session management ---
 const sessions = new Map();
+const SESSION_TTL_MS = 30 * 60 * 1000; // 30 min inactivity timeout
+
+// Cleanup stale sessions every 5 min
+setInterval(() => {
+  const now = Date.now();
+  for (const [sid, session] of sessions) {
+    if (now - session.lastUsed > SESSION_TTL_MS) {
+      console.log(`[session] Cleaning up stale session ${sid}`);
+      session.transport.close().catch(() => {});
+      sessions.delete(sid);
+    }
+  }
+}, 5 * 60 * 1000);
+
+function isInitializeRequest(body) {
+  if (body?.method === 'initialize') return true;
+  // Batch request: check if any item is initialize
+  if (Array.isArray(body)) return body.some((r) => r.method === 'initialize');
+  return false;
+}
 
 // POST /mcp — main MCP endpoint
 app.post('/mcp', authGuard, async (req, res) => {
   try {
     const sessionId = req.headers['mcp-session-id'];
 
+    // Existing valid session — forward the request
     if (sessionId && sessions.has(sessionId)) {
-      const { transport } = sessions.get(sessionId);
-      await transport.handleRequest(req, res, req.body);
+      const session = sessions.get(sessionId);
+      session.lastUsed = Date.now();
+      await session.transport.handleRequest(req, res, req.body);
       return;
     }
 
-    // New session
+    // Client sent an expired/unknown session ID → 404 per MCP spec
+    // This tells the client to discard the old session and re-initialize
+    if (sessionId && !sessions.has(sessionId)) {
+      console.log(`[session] Rejected expired session ${sessionId}`);
+      res.status(404).json({
+        jsonrpc: '2.0',
+        error: { code: -32000, message: 'Session expired or unknown. Please send a new initialize request without a session ID.' },
+        id: req.body?.id || null,
+      });
+      return;
+    }
+
+    // No session ID — only allow initialize requests
+    if (!isInitializeRequest(req.body)) {
+      res.status(400).json({
+        jsonrpc: '2.0',
+        error: { code: -32600, message: 'No active session. Send an initialize request first.' },
+        id: req.body?.id || null,
+      });
+      return;
+    }
+
+    // New session (initialize request without session ID)
     const server = createMCPServer();
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: () => randomUUID(),
@@ -91,7 +135,10 @@ app.post('/mcp', authGuard, async (req, res) => {
 
     transport.onclose = () => {
       const sid = transport.sessionId;
-      if (sid) sessions.delete(sid);
+      if (sid) {
+        console.log(`[session] Closed ${sid}`);
+        sessions.delete(sid);
+      }
       server.close().catch(() => {});
     };
 
@@ -99,7 +146,8 @@ app.post('/mcp', authGuard, async (req, res) => {
     await transport.handleRequest(req, res, req.body);
 
     if (transport.sessionId) {
-      sessions.set(transport.sessionId, { server, transport });
+      sessions.set(transport.sessionId, { server, transport, lastUsed: Date.now() });
+      console.log(`[session] Created ${transport.sessionId}`);
     }
   } catch (error) {
     console.error('Error handling MCP request:', error);

@@ -1,37 +1,128 @@
-# Linksight MCP — Setup para agentes
+# Linksight MCP - Setup para agentes
 
 Servidor MCP remoto que expone 20 herramientas para interactuar con la API de Linksight.
 
-**Endpoint**: `https://mcp.linksight.es/mcp`
+**Endpoint**: `https://mcp.linksight.es/mcp`  
 **Health check**: `https://mcp.linksight.es/health`
 
 ---
 
-## Claude Code (PC)
+## Datos que necesita cualquier cliente MCP
 
-Añade al fichero `~/.mcp.json` (global) o `<proyecto>/.mcp.json` (por proyecto):
+- **Transporte**: HTTP
+- **URL**: `https://mcp.linksight.es/mcp`
+- **Header de autenticacion**: `Authorization: Bearer <MCP_AUTH_TOKEN>`
+
+---
+
+## Claude Code
+
+Claude Code soporta MCP remoto por HTTP. A dia de hoy, lo mas comodo es usar el CLI `claude mcp ...`.
+
+### Opcion 1: configurarlo solo para ti en este proyecto
+
+Esto no modifica el repo. Claude Code lo guarda en tu configuracion local.
+
+```bash
+claude mcp add --scope local --transport http linksight https://mcp.linksight.es/mcp --header "Authorization: Bearer <MCP_AUTH_TOKEN>"
+```
+
+### Opcion 2: compartir la config en el repo
+
+Esto crea o actualiza `.mcp.json` en la raiz del proyecto.
+
+```bash
+claude mcp add --scope project --transport http linksight https://mcp.linksight.es/mcp --header "Authorization: Bearer <MCP_AUTH_TOKEN>"
+```
+
+Tambien puedes dejarlo manualmente en `.mcp.json`:
 
 ```json
 {
   "mcpServers": {
     "linksight": {
-      "type": "url",
+      "type": "http",
       "url": "https://mcp.linksight.es/mcp",
       "headers": {
-        "Authorization": "Bearer <MCP_AUTH_TOKEN>"
+        "Authorization": "Bearer ${MCP_AUTH_TOKEN}"
       }
     }
   }
 }
 ```
 
-Reinicia Claude Code para que cargue el MCP.
+Notas:
+
+- `local` es el scope por defecto y queda solo para tu usuario en este proyecto.
+- `project` deja la configuracion compartida en `.mcp.json`.
+- Claude Code expande `${MCP_AUTH_TOKEN}` dentro de `.mcp.json`.
+- Si usas `.mcp.json`, asegurate de tener `MCP_AUTH_TOKEN` definido antes de abrir Claude Code.
+
+Verificacion rapida:
+
+```bash
+claude mcp get linksight
+claude mcp list
+```
+
+Tambien puedes abrir Claude Code y ejecutar `/mcp`.
+
+### Variables de entorno utiles
+
+PowerShell:
+
+```powershell
+$env:MCP_AUTH_TOKEN="tu-token"
+```
+
+macOS / Linux:
+
+```bash
+export MCP_AUTH_TOKEN="tu-token"
+```
+
+---
+
+## Instrucciones para darle a otro agente
+
+Si quieres pegarle a otro agente un bloque de instrucciones para que se configure el acceso por si mismo, puedes usar esto tal cual:
+
+```text
+Configura en Claude Code el MCP remoto de Linksight para este proyecto.
+
+Datos del servidor:
+- Nombre: linksight
+- Transporte: http
+- URL: https://mcp.linksight.es/mcp
+- Header: Authorization: Bearer <MCP_AUTH_TOKEN>
+
+Haz lo siguiente:
+1. Si solo necesitas acceso para tu sesion/localmente en este proyecto, ejecuta:
+   claude mcp add --scope local --transport http linksight https://mcp.linksight.es/mcp --header "Authorization: Bearer <MCP_AUTH_TOKEN>"
+2. Si quieres dejar la configuracion compartida en el repo, crea o actualiza .mcp.json con este contenido:
+   {
+     "mcpServers": {
+       "linksight": {
+         "type": "http",
+         "url": "https://mcp.linksight.es/mcp",
+         "headers": {
+           "Authorization": "Bearer ${MCP_AUTH_TOKEN}"
+         }
+       }
+     }
+   }
+3. Verifica que el servidor ha quedado registrado con:
+   claude mcp get linksight
+4. Si usas la variante con .mcp.json, confirma que la variable de entorno MCP_AUTH_TOKEN existe antes de abrir Claude Code.
+```
+
+Sugerencia: para no pasar el token en claro dentro del prompt, es mejor que el agente use la variante de `.mcp.json` con `${MCP_AUTH_TOKEN}` o que lea el token desde una variable de entorno ya definida.
 
 ---
 
 ## Claude.ai (web)
 
-1. Ve a Settings > MCP Servers > Add
+1. Ve a `Settings > MCP Servers > Add`
 2. URL: `https://mcp.linksight.es/mcp`
 3. Header: `Authorization: Bearer <MCP_AUTH_TOKEN>`
 
@@ -42,7 +133,7 @@ Reinicia Claude Code para que cargue el MCP.
 Cualquier cliente MCP compatible con StreamableHTTP puede conectarse:
 
 - **URL**: `https://mcp.linksight.es/mcp`
-- **Method**: POST (initialize, tool calls) / GET (SSE) / DELETE (cleanup)
+- **Method**: `POST` (initialize, tool calls) / `GET` (SSE) / `DELETE` (cleanup)
 - **Headers**:
   - `Content-Type: application/json`
   - `Accept: application/json, text/event-stream`
@@ -139,9 +230,9 @@ curl -X POST https://mcp.linksight.es/mcp \
    - Startup file: `app.cjs`
    - Application root: `/httpdocs`
 4. Configurar env vars en Plesk:
-   - `MCP_AUTH_TOKEN` — token para proteger el endpoint MCP
-   - `LINKSIGHT_API_URL` — URL de la API (ej: `https://linksight.es/api`)
-   - `LINKSIGHT_EMAIL` — email de usuario Linksight
-   - `LINKSIGHT_PASSWORD` — password de usuario Linksight
+   - `MCP_AUTH_TOKEN` - token para proteger el endpoint MCP
+   - `LINKSIGHT_API_URL` - URL de la API (ej: `https://linksight.es/api`)
+   - `LINKSIGHT_EMAIL` - email de usuario Linksight
+   - `LINKSIGHT_PASSWORD` - password de usuario Linksight
 5. Restart App
 6. Verificar: `curl https://mcp.linksight.es/health`
