@@ -88,21 +88,18 @@ export const toolHandlers = {
   },
 
   // ─── Planner ────────────────────────────────────────────────────────
-  async linksight_planner_list() {
+  async linksight_planner_list({ state, linea_editorial } = {}) {
     try {
-      const data = await createClient().get('planner/posts');
+      const data = await createClient().get('planner/posts', { query: { state, linea_editorial } });
       return ok(data, { count: data.length });
     } catch (e) {
       return fail(e.status || 500, e.message);
     }
   },
 
-  async linksight_planner_create({ content, state, scheduled_datetime }) {
+  async linksight_planner_create(args) {
     try {
-      const body = {};
-      if (content !== undefined) body.content = content;
-      if (state) body.state = state;
-      if (scheduled_datetime) body.scheduled_datetime = scheduled_datetime;
+      const body = Object.fromEntries(Object.entries(args).filter(([, value]) => value !== undefined));
       const data = await createClient().post('planner/posts', body);
       return ok(data);
     } catch (e) {
@@ -110,17 +107,19 @@ export const toolHandlers = {
     }
   },
 
-  async linksight_planner_update({ id, content, state, scheduled_datetime }) {
+  async linksight_planner_update({ id, ...args }) {
     try {
-      const body = {};
-      if (content !== undefined) body.content = content;
-      if (state) body.state = state;
-      if (scheduled_datetime !== undefined) body.scheduled_datetime = scheduled_datetime;
+      const body = Object.fromEntries(Object.entries(args).filter(([, value]) => value !== undefined));
       const data = await createClient().put(`planner/posts/${id}`, body);
       return ok(data);
     } catch (e) {
       return fail(e.status || 500, e.message);
     }
+  },
+
+  async linksight_planner_publish({ id, published_post_url }) {
+    try { return ok(await createClient().post(`planner/posts/${id}/publish`, { published_post_url })); }
+    catch (e) { return fail(e.status || 500, e.message); }
   },
 
   async linksight_planner_save_optimization({ id, original_content, optimized_content }) {
@@ -240,9 +239,18 @@ export const toolHandlers = {
         likes: 0,
         comments: 0,
         shares: 0,
+        saves: 0,
       };
 
       const byCategory = {};
+      const byLineaEditorial = {};
+      const byFuncionEditorial = {};
+      const byFormato = {};
+      const addToBreakdown = (group, key, post) => {
+        const name = key || 'Sin clasificar';
+        if (!group[name]) group[name] = { posts: 0, views: 0, likes: 0, comments: 0, shares: 0, saves: 0 };
+        const item = group[name]; item.posts++; item.views += post.views || 0; item.likes += post.likes || 0; item.comments += post.comments || 0; item.shares += post.shares || 0; item.saves += post.saves || 0;
+      };
       let bestPost = null;
       let worstPost = null;
 
@@ -251,6 +259,10 @@ export const toolHandlers = {
         total.likes += p.likes || 0;
         total.comments += p.comments || 0;
         total.shares += p.shares || 0;
+        total.saves += p.saves || 0;
+        addToBreakdown(byLineaEditorial, p.linea_editorial, p);
+        addToBreakdown(byFuncionEditorial, p.funcion_editorial, p);
+        addToBreakdown(byFormato, p.formato, p);
 
         const cat = p.category || 'Sin categoría';
         if (!byCategory[cat]) {
@@ -287,6 +299,14 @@ export const toolHandlers = {
         c.avg_views = Math.round(c.views / c.posts);
         c.avg_engagement = Math.round(((c.likes + c.comments + c.shares) / c.posts) * 10) / 10;
       }
+      for (const group of [byLineaEditorial, byFuncionEditorial, byFormato]) for (const key of Object.keys(group)) {
+        const item = group[key]; const engagement = item.likes + item.comments + item.shares + item.saves;
+        item.avg_views = Math.round(item.views / item.posts);
+        item.engagement = engagement;
+        item.engagement_rate = item.views ? Math.round((engagement / item.views) * 10000) / 100 : 0;
+        item.comment_view_ratio = item.views ? Math.round((item.comments / item.views) * 10000) / 100 : 0;
+        item.save_share_ratio = item.shares ? Math.round((item.saves / item.shares) * 100) / 100 : null;
+      }
 
       // Monthly trend (last 6 months)
       const now = new Date();
@@ -312,6 +332,9 @@ export const toolHandlers = {
         best_post: bestPost,
         worst_post: worstPost,
         by_category: byCategory,
+        by_linea_editorial: byLineaEditorial,
+        by_funcion_editorial: byFuncionEditorial,
+        by_formato: byFormato,
         monthly_trend: monthlyTrend,
       });
     } catch (e) {

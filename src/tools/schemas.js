@@ -46,7 +46,11 @@ export const toolSchemas = {
               likes: { type: 'number', description: 'Number of likes' },
               comments: { type: 'number', description: 'Number of comments' },
               shares: { type: 'number', description: 'Number of shares' },
+              saves: { type: 'number', description: 'Number of saves' },
               post_type: { type: 'string', description: 'Type of post (e.g. article, image, video)' },
+              linea_editorial: { type: 'string', enum: ['IA para CIOs y C-Level', 'Casos reales y lecciones', 'Frameworks y checklists', 'Opinión sobre tendencias y hype', 'Marca personal y bastidores'] },
+              funcion_editorial: { type: 'string', enum: ['alcance', 'autoridad', 'conversacion', 'flexible'] },
+              formato: { type: 'string', enum: ['texto', 'carrusel', 'compartido', 'video', 'meme', 'articulo'] },
             },
             required: ['url'],
           },
@@ -70,8 +74,8 @@ export const toolSchemas = {
 
   // ─── Planner ────────────────────────────────────────────────────────
   linksight_planner_list: {
-    description: 'List all planner posts (drafts, ready, scheduled). Excludes deleted posts. Sorted by creation date.',
-    inputSchema: { type: 'object', properties: {} },
+    description: 'List planner ideas. Includes idea context and can filter by state or editorial line.',
+    inputSchema: { type: 'object', properties: { state: { type: 'string', enum: ['borrador', 'listo', 'planificado', 'publicado'] }, linea_editorial: { type: 'string' } } },
   },
 
   linksight_planner_create: {
@@ -80,8 +84,9 @@ export const toolSchemas = {
       type: 'object',
       properties: {
         content: { type: 'string', description: 'Post content text (default: empty)' },
-        state: { type: 'string', enum: ['borrador', 'listo', 'planificado'], description: 'Post state (default: borrador)' },
+        state: { type: 'string', enum: ['borrador', 'listo', 'planificado', 'publicado'], description: 'Post state (default: borrador)' },
         scheduled_datetime: { type: 'string', description: 'Scheduled date/time ISO string (optional, for planificado state)' },
+        titulo: { type: 'string' }, linea_editorial: { type: 'string' }, funcion_editorial: { type: 'string' }, formato: { type: 'string' }, fuente: { type: 'string' }, punto_de_vista: { type: 'string' }, hipotesis: { type: 'string' }, activo_reutilizable: { type: 'string' }, published_post_url: { type: 'string' },
       },
     },
   },
@@ -93,11 +98,17 @@ export const toolSchemas = {
       properties: {
         id: { type: 'string', description: 'Planner post ID' },
         content: { type: 'string', description: 'New content text' },
-        state: { type: 'string', enum: ['borrador', 'listo', 'planificado', 'eliminado'], description: 'New state' },
+        state: { type: 'string', enum: ['borrador', 'listo', 'planificado', 'publicado', 'eliminado'], description: 'New state' },
         scheduled_datetime: { type: 'string', description: 'New scheduled date/time ISO string' },
+        titulo: { type: 'string' }, linea_editorial: { type: 'string' }, funcion_editorial: { type: 'string' }, formato: { type: 'string' }, fuente: { type: 'string' }, punto_de_vista: { type: 'string' }, hipotesis: { type: 'string' }, activo_reutilizable: { type: 'string' }, published_post_url: { type: 'string' },
       },
       required: ['id'],
     },
+  },
+
+  linksight_planner_publish: {
+    description: 'Mark a planner idea as published, save its LinkedIn URL, and copy its taxonomy to the tracked post if it already exists.',
+    inputSchema: { type: 'object', properties: { id: { type: 'string' }, published_post_url: { type: 'string' } }, required: ['id', 'published_post_url'] },
   },
 
   linksight_planner_save_optimization: {
