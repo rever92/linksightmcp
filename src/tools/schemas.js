@@ -131,7 +131,7 @@ export const toolSchemas = {
   },
 
   linksight_planner_analytics: {
-    description: 'Get aggregated analytics for published planner posts, optionally filtered by editorial line, editorial function, and format.',
+    description: 'Get aggregated analytics for published planner posts, optionally filtered by editorial line, editorial function, and format. Averages exclude posts whose metrics are all zero.',
     inputSchema: {
       type: 'object',
       properties: {
