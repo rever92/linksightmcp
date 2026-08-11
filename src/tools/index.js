@@ -117,9 +117,63 @@ export const toolHandlers = {
     }
   },
 
-  async linksight_planner_publish({ id, published_post_url }) {
-    try { return ok(await createClient().post(`planner/posts/${id}/publish`, { published_post_url })); }
+  async linksight_planner_publish({ id, ...args }) {
+    try {
+      const body = Object.fromEntries(Object.entries(args).filter(([, value]) => value !== undefined));
+      return ok(await createClient().post(`planner/posts/${id}/publish`, body));
+    }
     catch (e) { return fail(e.status || 500, e.message); }
+  },
+
+  async linksight_planner_update_analytics({ id, ...metrics }) {
+    try {
+      const body = Object.fromEntries(Object.entries(metrics).filter(([, value]) => value !== undefined));
+      return ok(await createClient().put(`planner/posts/${id}`, body));
+    } catch (e) {
+      return fail(e.status || 500, e.message);
+    }
+  },
+
+  async linksight_planner_analytics(args = {}) {
+    try {
+      return ok(await createClient().get('planner/analytics', { query: args }));
+    } catch (e) {
+      return fail(e.status || 500, e.message);
+    }
+  },
+
+  async linksight_taxonomies_list({ include_inactive } = {}) {
+    try {
+      const data = await createClient().get('planner/taxonomies', { query: { include_inactive } });
+      return ok(data, { count: data.length });
+    } catch (e) {
+      return fail(e.status || 500, e.message);
+    }
+  },
+
+  async linksight_taxonomies_create({ kind, value }) {
+    try {
+      return ok(await createClient().post('planner/taxonomies', { kind, value }));
+    } catch (e) {
+      return fail(e.status || 500, e.message);
+    }
+  },
+
+  async linksight_taxonomies_update({ id, ...changes }) {
+    try {
+      const body = Object.fromEntries(Object.entries(changes).filter(([, value]) => value !== undefined));
+      return ok(await createClient().put(`planner/taxonomies/${id}`, body));
+    } catch (e) {
+      return fail(e.status || 500, e.message);
+    }
+  },
+
+  async linksight_taxonomies_delete({ id }) {
+    try {
+      return ok(await createClient().delete(`planner/taxonomies/${id}`));
+    } catch (e) {
+      return fail(e.status || 500, e.message);
+    }
   },
 
   async linksight_planner_save_optimization({ id, original_content, optimized_content }) {

@@ -1,6 +1,6 @@
 # Linksight MCP - Setup para agentes
 
-Servidor MCP remoto que expone 20 herramientas para interactuar con la API de Linksight.
+Servidor MCP remoto que expone 27 herramientas para interactuar con la API de Linksight.
 
 **Endpoint**: `https://mcp.linksight.es/mcp`  
 **Health check**: `https://mcp.linksight.es/health`
@@ -195,7 +195,7 @@ curl -X POST https://mcp.linksight.es/mcp \
 
 ---
 
-## Tools disponibles (20)
+## Tools disponibles (27)
 
 | Tool | Descripcion |
 |---|---|
@@ -208,6 +208,13 @@ curl -X POST https://mcp.linksight.es/mcp \
 | `linksight_planner_list` | Listar posts del planificador |
 | `linksight_planner_create` | Crear borrador en el planificador |
 | `linksight_planner_update` | Actualizar post del planificador |
+| `linksight_planner_publish` | Marcar un post como publicado, con URL y métricas opcionales |
+| `linksight_planner_update_analytics` | Actualizar visualizaciones, reacciones, comentarios, compartidos y guardados |
+| `linksight_planner_analytics` | Consultar estadísticas de publicados, con filtros editoriales |
+| `linksight_taxonomies_list` | Listar taxonomías de contenido |
+| `linksight_taxonomies_create` | Crear o restaurar un valor de taxonomía |
+| `linksight_taxonomies_update` | Renombrar, reordenar, ocultar o restaurar una taxonomía |
+| `linksight_taxonomies_delete` | Ocultar una taxonomía sin alterar el histórico |
 | `linksight_planner_save_optimization` | Guardar optimizacion AI de un post |
 | `linksight_premium_limits` | Limites premium del rol actual |
 | `linksight_premium_usage` | Uso mensual de features premium |

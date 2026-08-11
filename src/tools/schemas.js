@@ -1,3 +1,11 @@
+const plannerMetricProperties = {
+  views: { type: 'integer', minimum: 0, description: 'Post views/impressions' },
+  likes: { type: 'integer', minimum: 0, description: 'Post reactions' },
+  comments: { type: 'integer', minimum: 0, description: 'Post comments' },
+  shares: { type: 'integer', minimum: 0, description: 'Post shares/reposts' },
+  saves: { type: 'integer', minimum: 0, description: 'Post saves' },
+};
+
 export const toolSchemas = {
   // ─── Auth ───────────────────────────────────────────────────────────
   linksight_login: {
@@ -48,9 +56,9 @@ export const toolSchemas = {
               shares: { type: 'number', description: 'Number of shares' },
               saves: { type: 'number', description: 'Number of saves' },
               post_type: { type: 'string', description: 'Type of post (e.g. article, image, video)' },
-              linea_editorial: { type: 'string', enum: ['IA para CIOs y C-Level', 'Casos reales y lecciones', 'Frameworks y checklists', 'Opinión sobre tendencias y hype', 'Marca personal y bastidores'] },
-              funcion_editorial: { type: 'string', enum: ['alcance', 'autoridad', 'conversacion', 'flexible'] },
-              formato: { type: 'string', enum: ['texto', 'carrusel', 'compartido', 'video', 'meme', 'articulo'] },
+              linea_editorial: { type: 'string', description: 'Editorial line; use linksight_taxonomies_list to discover valid values' },
+              funcion_editorial: { type: 'string', description: 'Editorial function; use linksight_taxonomies_list to discover valid values' },
+              formato: { type: 'string', description: 'Content format; use linksight_taxonomies_list to discover valid values' },
             },
             required: ['url'],
           },
@@ -85,8 +93,9 @@ export const toolSchemas = {
       properties: {
         content: { type: 'string', description: 'Post content text (default: empty)' },
         state: { type: 'string', enum: ['borrador', 'listo', 'planificado', 'publicado'], description: 'Post state (default: borrador)' },
-        scheduled_datetime: { type: 'string', description: 'Scheduled date/time ISO string (optional, for planificado state)' },
+        scheduled_datetime: { type: 'string', description: 'Scheduled/published date-time ISO string (preserved for planificado and publicado states)' },
         titulo: { type: 'string' }, linea_editorial: { type: 'string' }, funcion_editorial: { type: 'string' }, formato: { type: 'string' }, fuente: { type: 'string' }, punto_de_vista: { type: 'string' }, hipotesis: { type: 'string' }, activo_reutilizable: { type: 'string' }, published_post_url: { type: 'string' },
+        ...plannerMetricProperties,
       },
     },
   },
@@ -101,14 +110,72 @@ export const toolSchemas = {
         state: { type: 'string', enum: ['borrador', 'listo', 'planificado', 'publicado', 'eliminado'], description: 'New state' },
         scheduled_datetime: { type: 'string', description: 'New scheduled date/time ISO string' },
         titulo: { type: 'string' }, linea_editorial: { type: 'string' }, funcion_editorial: { type: 'string' }, formato: { type: 'string' }, fuente: { type: 'string' }, punto_de_vista: { type: 'string' }, hipotesis: { type: 'string' }, activo_reutilizable: { type: 'string' }, published_post_url: { type: 'string' },
+        ...plannerMetricProperties,
       },
       required: ['id'],
     },
   },
 
   linksight_planner_publish: {
-    description: 'Mark a planner idea as published, save its LinkedIn URL, and copy its taxonomy to the tracked post if it already exists.',
-    inputSchema: { type: 'object', properties: { id: { type: 'string' }, published_post_url: { type: 'string' } }, required: ['id', 'published_post_url'] },
+    description: 'Mark a planner idea as published while preserving its calendar date. The LinkedIn URL and analytics are optional.',
+    inputSchema: { type: 'object', properties: { id: { type: 'string' }, published_post_url: { type: 'string' }, scheduled_datetime: { type: 'string' }, ...plannerMetricProperties }, required: ['id'] },
+  },
+
+  linksight_planner_update_analytics: {
+    description: 'Update analytics for a planner publication. Supports views, reactions, comments, shares, and saves; the analytics timestamp is recorded automatically.',
+    inputSchema: {
+      type: 'object',
+      properties: { id: { type: 'string', description: 'Planner post ID' }, ...plannerMetricProperties },
+      required: ['id'],
+    },
+  },
+
+  linksight_planner_analytics: {
+    description: 'Get aggregated analytics for published planner posts, optionally filtered by editorial line, editorial function, and format.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        linea_editorial: { type: 'string' },
+        funcion_editorial: { type: 'string' },
+        formato: { type: 'string' },
+      },
+    },
+  },
+
+  linksight_taxonomies_list: {
+    description: 'List content taxonomy values for editorial lines, editorial functions, and formats. States are fixed and are not taxonomies.',
+    inputSchema: { type: 'object', properties: { include_inactive: { type: 'boolean', description: 'Include hidden values' } } },
+  },
+
+  linksight_taxonomies_create: {
+    description: 'Create a content taxonomy value or reactivate a previously hidden value.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        kind: { type: 'string', enum: ['linea_editorial', 'funcion_editorial', 'formato'] },
+        value: { type: 'string' },
+      },
+      required: ['kind', 'value'],
+    },
+  },
+
+  linksight_taxonomies_update: {
+    description: 'Rename, reorder, hide, or restore a taxonomy. Renaming also updates existing content that uses the old value.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: 'Taxonomy ID' },
+        value: { type: 'string' },
+        active: { type: 'boolean' },
+        sort_order: { type: 'number' },
+      },
+      required: ['id'],
+    },
+  },
+
+  linksight_taxonomies_delete: {
+    description: 'Hide a taxonomy value without altering historical posts. It can be restored with linksight_taxonomies_update.',
+    inputSchema: { type: 'object', properties: { id: { type: 'string', description: 'Taxonomy ID' } }, required: ['id'] },
   },
 
   linksight_planner_save_optimization: {
