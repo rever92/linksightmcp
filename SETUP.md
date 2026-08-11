@@ -1,6 +1,6 @@
 # Linksight MCP - Setup para agentes
 
-Servidor MCP remoto que expone 27 herramientas para interactuar con la API de Linksight.
+Servidor MCP remoto que expone 29 herramientas para interactuar con la API de Linksight.
 
 **Endpoint**: `https://mcp.linksight.es/mcp`  
 **Health check**: `https://mcp.linksight.es/health`
@@ -195,7 +195,7 @@ curl -X POST https://mcp.linksight.es/mcp \
 
 ---
 
-## Tools disponibles (27)
+## Tools disponibles (29)
 
 | Tool | Descripcion |
 |---|---|
@@ -206,10 +206,12 @@ curl -X POST https://mcp.linksight.es/mcp \
 | `linksight_posts_upsert` | Bulk upsert de posts por URL |
 | `linksight_posts_update_category` | Actualizar categoria de un post |
 | `linksight_planner_list` | Listar posts del planificador |
+| `linksight_planner_find_by_text` | Buscar el `_id` del planner a partir de un fragmento del contenido |
 | `linksight_planner_create` | Crear borrador en el planificador |
 | `linksight_planner_update` | Actualizar post del planificador |
-| `linksight_planner_publish` | Marcar un post como publicado, con URL y métricas opcionales |
-| `linksight_planner_update_analytics` | Actualizar visualizaciones, reacciones, comentarios, compartidos y guardados |
+| `linksight_planner_publish` | Marcar un item del planner como publicado por `_id`; la URL es solo informativa |
+| `linksight_planner_update_analytics` | Alias compatible para actualizar métricas antiguas por `_id` |
+| `linksight_planner_update_metrics` | Guardar métricas directamente por el `_id` interno del planner |
 | `linksight_planner_analytics` | Consultar estadísticas de publicados, con filtros editoriales |
 | `linksight_taxonomies_list` | Listar taxonomías de contenido |
 | `linksight_taxonomies_create` | Crear o restaurar un valor de taxonomía |
@@ -225,7 +227,7 @@ curl -X POST https://mcp.linksight.es/mcp \
 | `linksight_stripe_portal` | Crear sesion del portal de facturacion |
 | `linksight_recommendations_latest` | Ultima recomendacion AI generada |
 | `linksight_recommendations_save` | Guardar nueva recomendacion AI |
-| `linksight_analytics_summary` | Resumen analitico calculado (totales, medias, tendencias) |
+| `linksight_analytics_summary` | Resumen calculado exclusivamente desde items publicados del planner con métricas |
 
 ---
 

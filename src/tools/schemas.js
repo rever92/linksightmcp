@@ -1,9 +1,13 @@
 const plannerMetricProperties = {
-  views: { type: 'integer', minimum: 0, description: 'Post views/impressions' },
-  likes: { type: 'integer', minimum: 0, description: 'Post reactions' },
-  comments: { type: 'integer', minimum: 0, description: 'Post comments' },
-  shares: { type: 'integer', minimum: 0, description: 'Post shares/reposts' },
-  saves: { type: 'integer', minimum: 0, description: 'Post saves' },
+  impresiones: { type: ['integer', 'null'], minimum: 0, description: 'LinkedIn post impressions' },
+  reacciones: { type: ['integer', 'null'], minimum: 0, description: 'LinkedIn post reactions' },
+  comentarios: { type: ['integer', 'null'], minimum: 0, description: 'LinkedIn post comments' },
+  compartidos: { type: ['integer', 'null'], minimum: 0, description: 'LinkedIn post shares/reposts' },
+  guardados: { type: ['integer', 'null'], minimum: 0, description: 'LinkedIn post saves' },
+  fecha_medicion: { type: ['string', 'null'], description: 'ISO date/time when the metrics were measured' },
+};
+const legacyPlannerMetricProperties = {
+  views: { type: 'integer', minimum: 0 }, likes: { type: 'integer', minimum: 0 }, comments: { type: 'integer', minimum: 0 }, shares: { type: 'integer', minimum: 0 }, saves: { type: 'integer', minimum: 0 },
 };
 
 export const toolSchemas = {
@@ -32,12 +36,12 @@ export const toolSchemas = {
 
   // ─── LinkedIn Posts (analytics) ─────────────────────────────────────
   linksight_posts_list: {
-    description: 'List all tracked LinkedIn posts with their metrics (views, likes, comments, shares) and metadata (category, post_type). Sorted by date descending.',
+    description: 'Legacy: list historical imported LinkedIn posts. Do not use this dataset to resolve or update planner metrics; use linksight_planner_find_by_text and planner _id instead.',
     inputSchema: { type: 'object', properties: {} },
   },
 
   linksight_posts_upsert: {
-    description: 'Bulk upsert LinkedIn posts. Posts are matched by URL — existing posts are updated, new ones are created. Returns all user posts after upsert.',
+    description: 'Legacy historical import only. It does not update planner metrics or planner analytics. For screenshot metrics, always find the planner _id and call linksight_planner_update_metrics.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -86,6 +90,11 @@ export const toolSchemas = {
     inputSchema: { type: 'object', properties: { state: { type: 'string', enum: ['borrador', 'listo', 'planificado', 'publicado'] }, linea_editorial: { type: 'string' } } },
   },
 
+  linksight_planner_find_by_text: {
+    description: 'Find planner items whose content starts with or contains text read from a LinkedIn statistics screenshot. Returns ranked matches with planner _id, title, content preview, and state. Use the returned _id for metric writes; never identify metrics by URL.',
+    inputSchema: { type: 'object', properties: { text: { type: 'string', minLength: 3, description: 'First words or another exact excerpt from the post' } }, required: ['text'] },
+  },
+
   linksight_planner_create: {
     description: 'Create a new planner post (draft by default).',
     inputSchema: {
@@ -96,6 +105,7 @@ export const toolSchemas = {
         scheduled_datetime: { type: 'string', description: 'Scheduled/published date-time ISO string (preserved for planificado and publicado states)' },
         titulo: { type: 'string' }, linea_editorial: { type: 'string' }, funcion_editorial: { type: 'string' }, formato: { type: 'string' }, fuente: { type: 'string' }, punto_de_vista: { type: 'string' }, hipotesis: { type: 'string' }, activo_reutilizable: { type: 'string' }, published_post_url: { type: 'string' },
         ...plannerMetricProperties,
+        ...legacyPlannerMetricProperties,
       },
     },
   },
@@ -111,6 +121,7 @@ export const toolSchemas = {
         scheduled_datetime: { type: 'string', description: 'New scheduled date/time ISO string' },
         titulo: { type: 'string' }, linea_editorial: { type: 'string' }, funcion_editorial: { type: 'string' }, formato: { type: 'string' }, fuente: { type: 'string' }, punto_de_vista: { type: 'string' }, hipotesis: { type: 'string' }, activo_reutilizable: { type: 'string' }, published_post_url: { type: 'string' },
         ...plannerMetricProperties,
+        ...legacyPlannerMetricProperties,
       },
       required: ['id'],
     },
@@ -118,14 +129,23 @@ export const toolSchemas = {
 
   linksight_planner_publish: {
     description: 'Mark a planner idea as published while preserving its calendar date. The LinkedIn URL and analytics are optional.',
-    inputSchema: { type: 'object', properties: { id: { type: 'string' }, published_post_url: { type: 'string' }, scheduled_datetime: { type: 'string' }, ...plannerMetricProperties }, required: ['id'] },
+    inputSchema: { type: 'object', properties: { id: { type: 'string' }, published_post_url: { type: 'string', description: 'Optional informational URL; never used to identify metrics' }, scheduled_datetime: { type: 'string' }, ...plannerMetricProperties, ...legacyPlannerMetricProperties }, required: ['id'] },
   },
 
   linksight_planner_update_analytics: {
-    description: 'Update analytics for a planner publication. Supports views, reactions, comments, shares, and saves; the analytics timestamp is recorded automatically.',
+    description: 'Deprecated compatibility alias. Update planner metrics by planner _id; legacy English metric names are mapped to the canonical fields.',
     inputSchema: {
       type: 'object',
-      properties: { id: { type: 'string', description: 'Planner post ID' }, ...plannerMetricProperties },
+      properties: { id: { type: 'string', description: 'Planner post _id' }, ...legacyPlannerMetricProperties },
+      required: ['id'],
+    },
+  },
+
+  linksight_planner_update_metrics: {
+    description: 'Store LinkedIn metrics directly on a planner item, identified exclusively by its internal planner _id. URL is never used.',
+    inputSchema: {
+      type: 'object',
+      properties: { id: { type: 'string', description: 'Internal planner item _id' }, ...plannerMetricProperties },
       required: ['id'],
     },
   },
@@ -275,7 +295,7 @@ export const toolSchemas = {
 
   // ─── Analytics (compound tools) ────────────────────────────────────
   linksight_analytics_summary: {
-    description: 'Get a computed analytics summary of LinkedIn post performance. Calculates totals, averages, best/worst posts, category breakdown, and trends. Useful for quick performance overviews without having to process raw post data.',
+    description: 'Get totals, averages, and editorial breakdowns calculated exclusively from published planner items and their planner metrics. Posts with no recorded metrics are excluded from averages.',
     inputSchema: { type: 'object', properties: {} },
   },
 };

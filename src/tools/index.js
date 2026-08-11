@@ -97,6 +97,15 @@ export const toolHandlers = {
     }
   },
 
+  async linksight_planner_find_by_text({ text }) {
+    try {
+      const data = await createClient().get('planner/posts/find-by-text', { query: { text } });
+      return ok(data, { count: data.length });
+    } catch (e) {
+      return fail(e.status || 500, e.message);
+    }
+  },
+
   async linksight_planner_create(args) {
     try {
       const body = Object.fromEntries(Object.entries(args).filter(([, value]) => value !== undefined));
@@ -127,8 +136,18 @@ export const toolHandlers = {
 
   async linksight_planner_update_analytics({ id, ...metrics }) {
     try {
+      const aliases = { views: 'impresiones', likes: 'reacciones', comments: 'comentarios', shares: 'compartidos', saves: 'guardados' };
+      const body = Object.fromEntries(Object.entries(metrics).filter(([, value]) => value !== undefined).map(([field, value]) => [aliases[field] || field, value]));
+      return ok(await createClient().put(`planner/posts/${id}/metrics`, body));
+    } catch (e) {
+      return fail(e.status || 500, e.message);
+    }
+  },
+
+  async linksight_planner_update_metrics({ id, ...metrics }) {
+    try {
       const body = Object.fromEntries(Object.entries(metrics).filter(([, value]) => value !== undefined));
-      return ok(await createClient().put(`planner/posts/${id}`, body));
+      return ok(await createClient().put(`planner/posts/${id}/metrics`, body));
     } catch (e) {
       return fail(e.status || 500, e.message);
     }
@@ -281,116 +300,16 @@ export const toolHandlers = {
   // ─── Analytics (compound) ──────────────────────────────────────────
   async linksight_analytics_summary() {
     try {
-      const posts = await createClient().get('posts');
-
-      if (!posts || posts.length === 0) {
-        return ok({ message: 'No posts found' }, { count: 0 });
-      }
-
-      const total = {
-        posts: posts.length,
-        views: 0,
-        likes: 0,
-        comments: 0,
-        shares: 0,
-        saves: 0,
-      };
-
-      const byCategory = {};
-      const byLineaEditorial = {};
-      const byFuncionEditorial = {};
-      const byFormato = {};
-      const addToBreakdown = (group, key, post) => {
-        const name = key || 'Sin clasificar';
-        if (!group[name]) group[name] = { posts: 0, views: 0, likes: 0, comments: 0, shares: 0, saves: 0 };
-        const item = group[name]; item.posts++; item.views += post.views || 0; item.likes += post.likes || 0; item.comments += post.comments || 0; item.shares += post.shares || 0; item.saves += post.saves || 0;
-      };
-      let bestPost = null;
-      let worstPost = null;
-
-      for (const p of posts) {
-        total.views += p.views || 0;
-        total.likes += p.likes || 0;
-        total.comments += p.comments || 0;
-        total.shares += p.shares || 0;
-        total.saves += p.saves || 0;
-        addToBreakdown(byLineaEditorial, p.linea_editorial, p);
-        addToBreakdown(byFuncionEditorial, p.funcion_editorial, p);
-        addToBreakdown(byFormato, p.formato, p);
-
-        const cat = p.category || 'Sin categoría';
-        if (!byCategory[cat]) {
-          byCategory[cat] = { posts: 0, views: 0, likes: 0, comments: 0, shares: 0 };
-        }
-        byCategory[cat].posts++;
-        byCategory[cat].views += p.views || 0;
-        byCategory[cat].likes += p.likes || 0;
-        byCategory[cat].comments += p.comments || 0;
-        byCategory[cat].shares += p.shares || 0;
-
-        const engagement = (p.likes || 0) + (p.comments || 0) + (p.shares || 0);
-        if (!bestPost || engagement > bestPost.engagement) {
-          bestPost = { url: p.url, text: (p.text || '').substring(0, 100), engagement, views: p.views, date: p.date };
-        }
-        if (!worstPost || engagement < worstPost.engagement) {
-          worstPost = { url: p.url, text: (p.text || '').substring(0, 100), engagement, views: p.views, date: p.date };
-        }
-      }
-
-      const avg = {
-        views: Math.round(total.views / total.posts),
-        likes: Math.round((total.likes / total.posts) * 10) / 10,
-        comments: Math.round((total.comments / total.posts) * 10) / 10,
-        shares: Math.round((total.shares / total.posts) * 10) / 10,
-        engagement_rate: total.views > 0
-          ? Math.round(((total.likes + total.comments + total.shares) / total.views) * 10000) / 100
-          : 0,
-      };
-
-      // Category averages
-      for (const cat of Object.keys(byCategory)) {
-        const c = byCategory[cat];
-        c.avg_views = Math.round(c.views / c.posts);
-        c.avg_engagement = Math.round(((c.likes + c.comments + c.shares) / c.posts) * 10) / 10;
-      }
-      for (const group of [byLineaEditorial, byFuncionEditorial, byFormato]) for (const key of Object.keys(group)) {
-        const item = group[key]; const engagement = item.likes + item.comments + item.shares + item.saves;
-        item.avg_views = Math.round(item.views / item.posts);
-        item.engagement = engagement;
-        item.engagement_rate = item.views ? Math.round((engagement / item.views) * 10000) / 100 : 0;
-        item.comment_view_ratio = item.views ? Math.round((item.comments / item.views) * 10000) / 100 : 0;
-        item.save_share_ratio = item.shares ? Math.round((item.saves / item.shares) * 100) / 100 : null;
-      }
-
-      // Monthly trend (last 6 months)
-      const now = new Date();
-      const monthlyTrend = [];
-      for (let i = 5; i >= 0; i--) {
-        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-        const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-        const monthPosts = posts.filter(p => {
-          const pd = new Date(p.date);
-          return pd.getFullYear() === d.getFullYear() && pd.getMonth() === d.getMonth();
-        });
-        monthlyTrend.push({
-          month: monthKey,
-          posts: monthPosts.length,
-          views: monthPosts.reduce((s, p) => s + (p.views || 0), 0),
-          engagement: monthPosts.reduce((s, p) => s + (p.likes || 0) + (p.comments || 0) + (p.shares || 0), 0),
-        });
-      }
-
+      const analytics = await createClient().get('planner/analytics');
+      const withMetrics = (rows) => rows.filter((row) => row.posts_with_metrics > 0);
       return ok({
-        total,
-        averages: avg,
-        best_post: bestPost,
-        worst_post: worstPost,
-        by_category: byCategory,
-        by_linea_editorial: byLineaEditorial,
-        by_funcion_editorial: byFuncionEditorial,
-        by_formato: byFormato,
-        monthly_trend: monthlyTrend,
-      });
+        total: { ...analytics.summary, posts: analytics.summary.posts_with_metrics },
+        published_posts: analytics.summary.posts,
+        by_linea_editorial: withMetrics(analytics.breakdowns.linea_editorial),
+        by_funcion_editorial: withMetrics(analytics.breakdowns.funcion_editorial),
+        by_formato: withMetrics(analytics.breakdowns.formato),
+      }, { source: 'planner', posts_with_metrics: analytics.summary.posts_with_metrics });
+
     } catch (e) {
       return fail(e.status || 500, e.message);
     }
