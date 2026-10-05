@@ -91,8 +91,8 @@ export const toolSchemas = {
 
   // ─── Planner ────────────────────────────────────────────────────────
   linksight_planner_list: {
-    description: 'List planner ideas. Includes idea context and can filter by state or editorial line.',
-    inputSchema: { type: 'object', properties: { state: { type: 'string', enum: ['borrador', 'listo', 'planificado', 'publicado'] }, linea_editorial: { type: 'string' } } },
+    description: 'List planner ideas. Includes idea context and can filter by state or editorial line. For the latest published posts use state "publicado" with limit.',
+    inputSchema: { type: 'object', properties: { state: { type: 'string', enum: ['borrador', 'listo', 'planificado', 'publicado'] }, linea_editorial: { type: 'string' }, limit: { type: 'integer', minimum: 1, description: 'Return only the N most recent items by scheduled_datetime (publication date for published posts). Omit to return all.' } } },
   },
 
   linksight_planner_find_by_text: {

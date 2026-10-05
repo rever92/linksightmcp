@@ -92,10 +92,14 @@ export const toolHandlers = {
   },
 
   // ─── Planner ────────────────────────────────────────────────────────
-  async linksight_planner_list({ state, linea_editorial } = {}) {
+  async linksight_planner_list({ state, linea_editorial, limit } = {}) {
     try {
-      const data = await createClient().get('planner/posts', { query: { state, linea_editorial } });
-      return ok(data, { count: data.length });
+      let data = await createClient().get('planner/posts', { query: { state, linea_editorial } });
+      const total = data.length;
+      if (limit) {
+        data = [...data].sort((a, b) => new Date(b.scheduled_datetime) - new Date(a.scheduled_datetime)).slice(0, limit);
+      }
+      return ok(data, { count: data.length, total });
     } catch (e) {
       return fail(e.status || 500, e.message);
     }
