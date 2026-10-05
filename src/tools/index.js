@@ -60,10 +60,14 @@ export const toolHandlers = {
   },
 
   // ─── LinkedIn Posts ─────────────────────────────────────────────────
-  async linksight_posts_list() {
+  async linksight_posts_list({ limit } = {}) {
     try {
-      const data = await createClient().get('posts');
-      return ok(data, { count: data.length });
+      let data = await createClient().get('posts');
+      const total = data.length;
+      if (limit) {
+        data = [...data].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, limit);
+      }
+      return ok(data, { count: data.length, total });
     } catch (e) {
       return fail(e.status || 500, e.message);
     }

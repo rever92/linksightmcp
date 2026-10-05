@@ -37,7 +37,12 @@ export const toolSchemas = {
   // ─── LinkedIn Posts (analytics) ─────────────────────────────────────
   linksight_posts_list: {
     description: 'Legacy: list historical imported LinkedIn posts. Do not use this dataset to resolve or update planner metrics; use linksight_planner_find_by_text and planner _id instead.',
-    inputSchema: { type: 'object', properties: {} },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        limit: { type: 'integer', minimum: 1, description: 'Return only the N most recent posts (by date). Omit to return all.' },
+      },
+    },
   },
 
   linksight_posts_upsert: {
